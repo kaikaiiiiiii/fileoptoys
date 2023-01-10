@@ -36,3 +36,27 @@ function lcs(a, b) {
     return memo[m][n];
 }
 
+class folder {
+    constructor() {
+        this.folder = '';
+        this.files = [];
+        this.status = 0; // 0 = adding files, 1 = executed,
+    }
+    add(x) {
+        this.files.push(x)
+    }
+    target(p) {
+        this.folder = p;
+    }
+    print() {
+        console.log(">> target:" + this.folder);
+        for (item in this.files) {
+            console.log('---> move:' + item);
+        }
+    }
+    exec() {
+        if (false) {
+            console.log('check folder path');
+        }
+    }
+}
