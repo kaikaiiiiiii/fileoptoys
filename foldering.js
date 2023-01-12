@@ -49,18 +49,20 @@ class Folder {
     }
     buildSubDir() {
         let flcs = this.files[0];
-        if (this.files.length > 3) {
+        if (this.files.length > 1) {
             for (let i = 1; i < this.files.length; i++) {
                 flcs = lcs(flcs, this.files[i]);
             }
         }
+        let numreg = /\d{1,3}/ig;
+        let nums = this.files.map(e => e.match(numreg));
 
 
-        this.subDir = lcs;
     }
     print() {
-        if (!this.subDir) { this.buildSubDir() };
-        console.log("===> " + path.join(this.baseDir, this.subDir));
+        // if (!this.subDir) { this.buildSubDir() };
+        this.buildSubDir();
+        console.log("===> " + path.join(this.baseDir, this.subDir || ''));
         for (let item of this.files) {
             console.log('  -> ' + item);
         }
@@ -80,7 +82,7 @@ function go(list) {
     for (let i = 1; i < list.length; i++) {
         let a = list[i - 1], b = list[i];
         let thisLCS = lcs(a, b);
-        if (thisLCS.length >= a.length - 2 || thisLCS.length >= b.length - 2) {
+        if (thisLCS.length >= a.length * 0.95 || thisLCS.length >= b.length * 0.95) {
             o.add(b);
             continue;
         } else {
@@ -96,4 +98,3 @@ var g = go(list);
 
 g.forEach(e => e.print())
 
-console.log(g)
