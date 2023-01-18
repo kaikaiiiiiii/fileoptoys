@@ -13,6 +13,7 @@ function escapeRegExp(string) {
 // 两种情况：
 // 两个文件分别名为 episode 01 和 episode 02 属于同一目录。判断为相似度 > 95%
 // 两个文件分别名为 movie 和 movie extra 属于同一目录。判断为 lsc 串等于某个文件。
+// 需要去掉 CRC8 校验位。
 
 function lcs(a, b) {
     if (typeof a != 'string' || typeof b != 'string') { return new Error('arguments are not strings') };
@@ -38,6 +39,7 @@ function lcs(a, b) {
     return memo[m][n];
 }
 
+// 定义同目录文件组对象
 class Folder {
     constructor(x) {
         this.baseDir = targetPath;
@@ -73,28 +75,32 @@ class Folder {
     }
 }
 
+// 
+
 // var list = fs.readdirSync(targetPath);
 var list = fs.readFileSync('ls.txt', 'utf8').split('\n');
 
-function go(list) {
+var CRC8reg = /[0-9A-F]{8}/i;
+
+function grouping(list) {
     var result = [];
     var o = new Folder(list[0]);
     for (let i = 1; i < list.length; i++) {
-        let a = list[i - 1], b = list[i];
+        let a = list[i - 1].replace(CRC8reg, ''), b = list[i].replace(CRC8reg, '');
         let thisLCS = lcs(a, b);
         if (thisLCS.length >= a.length * 0.95 || thisLCS.length >= b.length * 0.95) {
-            o.add(b);
+            o.add(list[i]);
             continue;
         } else {
             result.push(o);
-            o = new Folder(b);
+            o = new Folder(list[i]);
         }
     }
     result.push(o);
     return result
 }
 
-var g = go(list);
+var g = grouping(list);
 
 g.forEach(e => e.print())
 
