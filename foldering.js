@@ -2,12 +2,23 @@ const fs = require('fs');
 const path = require('path');
 
 var targetPath = 'F:\\Anime Episodes'
-
+var CRC8reg = /[0-9A-F]{8}/i;
 
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
 }
 
+function stringSplice(str, index, count, add) {
+    // We cannot pass negative indexes directly to the 2nd slicing operation.
+    if (index < 0) {
+        index = str.length + index;
+        if (index < 0) {
+            index = 0;
+        }
+    }
+
+    return str.slice(0, index) + (add || "") + str.slice(index + count);
+}
 
 // 根据两个文件名的最小公共子序列与文件名间的相似度，判断两个文件是否可以归并到同一个目录中。
 // 两种情况：
@@ -50,19 +61,51 @@ class Folder {
         this.files.push(x);
     }
     buildSubDir() {
-        let flcs = this.files[0];
-        if (this.files.length > 1) {
-            for (let i = 1; i < this.files.length; i++) {
-                flcs = lcs(flcs, this.files[i]);
+        if (this.files.length > 2) {
+            // let flcs = this.files[0];
+            // if (this.files.length > 1) {
+            //     for (let i = 1; i < this.files.length; i++) {
+            //         flcs = lcs(flcs, this.files[i]);
+            //     }
+            // }
+
+            // 因为对于不满10集的番（01-09），直接使用 lcs 作对比会忽略序号前的 0，只找出 1-9
+            // 因此需要单独通过 /\d{2,3}/i 来寻找寻找集数序号
+            let numreg = /\d{2,3}/ig;
+            let nums = this.files.map(e => e.replace(CRC8reg, '').match(numreg));
+            let flags = new Array(nums[0].length).fill(false);
+            for (let i = 1; i < nums.length; i++) {
+                for (let j = 0; j < nums[0].length; j++) {
+                    if (nums[i][j] != nums[i - 1][j]) {
+                        flags[j] = true;
+                    }
+                }
             }
+            let episodes = nums.map(arr => arr.filter((e, i) => flags[i])[0]);
+
+            // 推断集数序号位置
+            let pos = episodes.map((e, i) => {
+                let r = new RegExp(e, 'i');
+                return this.files[i].match(e).index;
+            });
+            let p, o = Object.entries(
+                pos.reduce((base, add) => {
+                    base[add] = base[add] + 1 || 1;
+                    return base
+                }, {})
+            )
+            if (o.length == 1) { p = o[0][0] } else {
+                p = o.reduce((base, add) => {
+                    return base[1] > add[1] ? base : add;
+                })[0]
+            }
+            var lefts = this.files.map(e => e.replace(CRC8reg, '').slice(0, p));
+            var rights = this.files.map(e => e.replace(CRC8reg, '').slice(~~p + 2));
+            console.log(lefts, rights)
+
         }
-        let numreg = /\d{1,3}/ig;
-        let nums = this.files.map(e => e.match(numreg));
-
-
     }
     print() {
-        // if (!this.subDir) { this.buildSubDir() };
         this.buildSubDir();
         console.log("===> " + path.join(this.baseDir, this.subDir || ''));
         for (let item of this.files) {
@@ -79,8 +122,6 @@ class Folder {
 
 // var list = fs.readdirSync(targetPath);
 var list = fs.readFileSync('ls.txt', 'utf8').split('\n');
-
-var CRC8reg = /[0-9A-F]{8}/i;
 
 function grouping(list) {
     var result = [];
