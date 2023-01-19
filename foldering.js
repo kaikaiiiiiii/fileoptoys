@@ -12,11 +12,8 @@ function stringSplice(str, index, count, add) {
     // We cannot pass negative indexes directly to the 2nd slicing operation.
     if (index < 0) {
         index = str.length + index;
-        if (index < 0) {
-            index = 0;
-        }
+        if (index < 0) { index = 0; }
     }
-
     return str.slice(0, index) + (add || "") + str.slice(index + count);
 }
 
@@ -61,16 +58,11 @@ class Folder {
         this.files.push(x);
     }
     buildSubDir() {
-        if (this.files.length > 2) {
-            // let flcs = this.files[0];
-            // if (this.files.length > 1) {
-            //     for (let i = 1; i < this.files.length; i++) {
-            //         flcs = lcs(flcs, this.files[i]);
-            //     }
-            // }
+        if (this.files.length > 1) {
 
             // 因为对于不满10集的番（01-09），直接使用 lcs 作对比会忽略序号前的 0，只找出 1-9
             // 因此需要单独通过 /\d{2,3}/i 来寻找寻找集数序号
+            // 存在某种可能，番剧没有编号，而是直接写入每集名称，这种情况下没有集数序号列
             let numreg = /\d{2,3}/ig;
             let nums = this.files.map(e => e.replace(CRC8reg, '').match(numreg));
             let flags = new Array(nums[0].length).fill(false);
@@ -81,28 +73,61 @@ class Folder {
                     }
                 }
             }
-            let episodes = nums.map(arr => arr.filter((e, i) => flags[i])[0]);
+            //如果没有序号，则返回的是与 nums 等长的 undefined 数组，以 -1 标记。
+            let guessEpisodes = nums.map(arr => arr.filter((e, i) => flags[i])[0]).map(e => e ? e : -1);
+            let guessEpisodeDigitsLength = guessEpisodes[0] && guessEpisodes[0].length || 0
 
             // 推断集数序号位置
-            let pos = episodes.map((e, i) => {
-                let r = new RegExp(e, 'i');
-                return this.files[i].match(e).index;
+            let pos = guessEpisodes.map((e, i) => {
+                return this.files[i].match(e)?.index || -1;
             });
-            let p, o = Object.entries(
-                pos.reduce((base, add) => {
-                    base[add] = base[add] + 1 || 1;
-                    return base
-                }, {})
-            )
+            let p,
+                o = Object.entries(
+                    pos.reduce((base, add) => {
+                        base[add] = base[add] + 1 || 1;
+                        return base
+                    }, {})
+                )
             if (o.length == 1) { p = o[0][0] } else {
                 p = o.reduce((base, add) => {
                     return base[1] > add[1] ? base : add;
                 })[0]
             }
-            var lefts = this.files.map(e => e.replace(CRC8reg, '').slice(0, p));
-            var rights = this.files.map(e => e.replace(CRC8reg, '').slice(~~p + 2));
-            console.log(lefts, rights)
-
+            // 计算子目录名
+            if (p == -1) {
+                this.subDir = this.files.reduce((base, add) => lcs(base, add));
+            } else {
+                let lefts = this.files.map(e => e.replace(CRC8reg, '').slice(0, p));
+                let rights = this.files.map(e => e.replace(CRC8reg, '').slice(~~p + 2));
+                let left = lefts.reduce((base, add) => lcs(base, add));
+                let right = rights.reduce((base, add) => lcs(base, add));
+                // 生成集数序号起止
+                let episodes = this.files.map(e => e.substring(p, ~~p + guessEpisodeDigitsLength)).filter(e => !isNaN(e));
+                function findSeries(array) {
+                    var result = array[0];
+                    for (let i = 1; i < array.length; i++) {
+                        if (array[i] - array[i - 1] != 1) {
+                            result += ','
+                            result += array[i]
+                            continue
+                        }
+                        if (i == array.length - 1) {
+                            result += ('-' + array[i]);
+                            continue
+                        }
+                    }
+                    return result
+                }
+                let mid = findSeries(episodes);
+                let output = left + '[' + mid + ']' + right;
+                output = output.replace(/\.([^.]*)$/, '');
+                output = output.replace(/\(\)/, '');
+                output = output.replace(/\] \[/, '][');
+                output = output.replace(/  /, ' ');
+                output = output.replace(/ - /, ' ');
+                console.log(output)
+                this.subDir = output
+            }
         }
     }
     print() {
@@ -113,15 +138,28 @@ class Folder {
         }
     }
     exec() {
-        if (!this.subDir) { this.buildSubDir() };
-        console.log('TODO')
+        this.buildSubDir();
+        if (this.subDir == undefined || this.subDir.length == 0) {
+            this.files.forEach(f => {
+                console.log('Keep' + f + ', don\'t move.')
+            })
+        } else {
+            let target = path.join(this.baseDir, this.subDir);
+            if (fs.existsSync(target) == false) { fs.mkdirSync(target) };
+            this.files.forEach(file => {
+                let from = path.join(this.baseDir, file);
+                let to = path.join(target, file);
+                fs.renameSync(from, to);
+                console.log(this.subDir + ' done.')
+            });
+        }
     }
 }
 
 // 
 
-// var list = fs.readdirSync(targetPath);
-var list = fs.readFileSync('ls.txt', 'utf8').split('\n');
+var list = fs.readdirSync(targetPath);
+// var list = fs.readFileSync('ls.txt', 'utf8').split('\n');
 
 function grouping(list) {
     var result = [];
@@ -143,5 +181,5 @@ function grouping(list) {
 
 var g = grouping(list);
 
-g.forEach(e => e.print())
+g.forEach(e => e.exec())
 
