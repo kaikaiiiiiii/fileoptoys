@@ -160,7 +160,8 @@ class Folder {
 
 // 
 
-var list = fs.readdirSync(targetPath);
+var list = fs.readdirSync(targetPath)
+    .filter(e => !fs.statSync(path.join(targetPath, e)).isDirectory());
 // var list = fs.readFileSync('ls.txt', 'utf8').split('\n');
 
 function grouping(list) {
