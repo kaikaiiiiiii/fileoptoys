@@ -95,7 +95,9 @@ class Folder {
             }
             // 计算子目录名
             if (p == -1) {
-                this.subDir = this.files.reduce((base, add) => lcs(base, add));
+                let output = this.files.reduce((base, add) => lcs(base, add));
+                output = output.replace(/\.([^.]*)$/, '');
+                this.subDir = output;
             } else {
                 let lefts = this.files.map(e => e.replace(CRC8reg, '').slice(0, p));
                 let rights = this.files.map(e => e.replace(CRC8reg, '').slice(~~p + 2));
@@ -181,5 +183,6 @@ function grouping(list) {
 
 var g = grouping(list);
 
+g.forEach(e => e.print())
 g.forEach(e => e.exec())
 
